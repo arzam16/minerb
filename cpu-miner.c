@@ -138,9 +138,7 @@ long opt_proxy_type;
 struct thr_info *thr_info;
 static int work_thr_id;
 int longpoll_thr_id = -1;
-int stratum_thr_id = -1;
 struct work_restart *work_restart = NULL;
-static struct stratum_ctx stratum;
 
 pthread_mutex_t applog_lock;
 static pthread_mutex_t stats_lock;
@@ -972,56 +970,6 @@ err_out:
 	return false;
 }
 
-static void stratum_gen_work(struct stratum_ctx *sctx, struct work *work)
-{
-	unsigned char merkle_root[64];
-	int i;
-
-	pthread_mutex_lock(&sctx->work_lock);
-
-	free(work->job_id);
-	work->job_id = strdup(sctx->job.job_id);
-	work->xnonce2_len = sctx->xnonce2_size;
-	work->xnonce2 = realloc(work->xnonce2, sctx->xnonce2_size);
-	memcpy(work->xnonce2, sctx->job.xnonce2, sctx->xnonce2_size);
-
-	/* Generate merkle root */
-	sha256d(merkle_root, sctx->job.coinbase, sctx->job.coinbase_size);
-	for (i = 0; i < sctx->job.merkle_count; i++) {
-		memcpy(merkle_root + 32, sctx->job.merkle[i], 32);
-		sha256d(merkle_root, merkle_root, 64);
-	}
-	
-	/* Increment extranonce2 */
-	for (i = 0; i < sctx->xnonce2_size && !++sctx->job.xnonce2[i]; i++);
-
-	/* Assemble block header */
-	memset(work->data, 0, 128);
-	work->data[0] = le32dec(sctx->job.version);
-	for (i = 0; i < 8; i++)
-		work->data[1 + i] = le32dec((uint32_t *)sctx->job.prevhash + i);
-	for (i = 0; i < 8; i++)
-		work->data[9 + i] = be32dec((uint32_t *)merkle_root + i);
-	work->data[17] = le32dec(sctx->job.ntime);
-	work->data[18] = le32dec(sctx->job.nbits);
-	work->data[20] = 0x80000000;
-	work->data[31] = 0x00000280;
-
-	pthread_mutex_unlock(&sctx->work_lock);
-
-	if (opt_debug) {
-		char *xnonce2str = abin2hex(work->xnonce2, work->xnonce2_len);
-		applog(LOG_DEBUG, "DEBUG: job_id='%s' extranonce2=%s ntime=%08x",
-		       work->job_id, xnonce2str, swab32(work->data[17]));
-		free(xnonce2str);
-	}
-
-	if (opt_algo == ALGO_SCRYPT)
-		diff_to_target(work->target, sctx->job.diff / 65536.0);
-	else
-		diff_to_target(work->target, sctx->job.diff);
-}
-
 static void *miner_thread(void *userdata)
 {
 	struct thr_info *mythr = userdata;
@@ -1255,100 +1203,6 @@ out:
 	return NULL;
 }
 
-static bool stratum_handle_response(char *buf)
-{
-	json_t *val, *err_val, *res_val, *id_val;
-	json_error_t err;
-	bool ret = false;
-
-	val = JSON_LOADS(buf, &err);
-	if (!val) {
-		applog(LOG_INFO, "JSON decode failed(%d): %s", err.line, err.text);
-		goto out;
-	}
-
-	res_val = json_object_get(val, "result");
-	err_val = json_object_get(val, "error");
-	id_val = json_object_get(val, "id");
-
-	if (!id_val || json_is_null(id_val) || !res_val)
-		goto out;
-
-	share_result(json_is_true(res_val),
-		err_val ? json_string_value(json_array_get(err_val, 1)) : NULL);
-
-	ret = true;
-out:
-	if (val)
-		json_decref(val);
-
-	return ret;
-}
-
-static void *stratum_thread(void *userdata)
-{
-	struct thr_info *mythr = userdata;
-	char *s;
-
-	stratum.url = tq_pop(mythr->q, NULL);
-	if (!stratum.url)
-		goto out;
-	applog(LOG_INFO, "Starting Stratum on %s", stratum.url);
-
-	while (1) {
-		int failures = 0;
-
-		while (!stratum.curl) {
-			pthread_mutex_lock(&g_work_lock);
-			g_work_time = 0;
-			pthread_mutex_unlock(&g_work_lock);
-			restart_threads();
-
-			if (!stratum_connect(&stratum, stratum.url) ||
-			    !stratum_subscribe(&stratum) ||
-			    !stratum_authorize(&stratum, rpc_user, rpc_pass)) {
-				stratum_disconnect(&stratum);
-				if (opt_retries >= 0 && ++failures > opt_retries) {
-					applog(LOG_ERR, "...terminating workio thread");
-					tq_push(thr_info[work_thr_id].q, NULL);
-					goto out;
-				}
-				applog(LOG_ERR, "...retry after %d seconds", opt_fail_pause);
-				sleep(opt_fail_pause);
-			}
-		}
-
-		if (stratum.job.job_id &&
-		    (!g_work_time || strcmp(stratum.job.job_id, g_work.job_id))) {
-			pthread_mutex_lock(&g_work_lock);
-			stratum_gen_work(&stratum, &g_work);
-			time(&g_work_time);
-			pthread_mutex_unlock(&g_work_lock);
-			if (stratum.job.clean) {
-				applog(LOG_INFO, "Stratum requested work restart");
-				restart_threads();
-			}
-		}
-		
-		if (!stratum_socket_full(&stratum, 120)) {
-			applog(LOG_ERR, "Stratum connection timed out");
-			s = NULL;
-		} else
-			s = stratum_recv_line(&stratum);
-		if (!s) {
-			stratum_disconnect(&stratum);
-			applog(LOG_ERR, "Stratum connection interrupted");
-			continue;
-		}
-		if (!stratum_handle_method(&stratum, s))
-			stratum_handle_response(s);
-		free(s);
-	}
-
-out:
-	return NULL;
-}
-
 static void show_version_and_exit(void)
 {
 	printf(PACKAGE_STRING "\n built on " __DATE__ "\n features:"
@@ -1546,9 +1400,7 @@ static void parse_arg(int key, char *arg, char *pname)
 			hp = ap;
 		if (ap != arg) {
 			if (strncasecmp(arg, "http://", 7) &&
-			    strncasecmp(arg, "https://", 8) &&
-			    strncasecmp(arg, "stratum+tcp://", 14) &&
-			    strncasecmp(arg, "stratum+tcps://", 15)) {
+			    strncasecmp(arg, "https://", 8)) {
 				fprintf(stderr, "%s: unknown protocol -- '%s'\n",
 					pname, arg);
 				show_usage_and_exit(1);
@@ -1738,8 +1590,6 @@ int main(int argc, char *argv[])
 	pthread_mutex_init(&applog_lock, NULL);
 	pthread_mutex_init(&stats_lock, NULL);
 	pthread_mutex_init(&g_work_lock, NULL);
-	pthread_mutex_init(&stratum.sock_lock, NULL);
-	pthread_mutex_init(&stratum.work_lock, NULL);
 
 	flags = (CURL_GLOBAL_ALL & ~CURL_GLOBAL_SSL);
 	if (curl_global_init(flags)) {
