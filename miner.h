@@ -163,7 +163,6 @@ extern int opt_timeout;
 extern bool use_syslog;
 extern pthread_mutex_t applog_lock;
 extern struct thr_info *thr_info;
-extern int longpoll_thr_id;
 extern struct work_restart *work_restart;
 
 extern void applog(int prio, const char *fmt, ...);

@@ -105,7 +105,6 @@ static int opt_scrypt_n = 1024;
 static int opt_n_threads;
 static int num_processors;
 struct thr_info *thr_info;
-int longpoll_thr_id = -1;
 struct work_restart *work_restart = NULL;
 
 pthread_mutex_t applog_lock;
