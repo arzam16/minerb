@@ -754,40 +754,6 @@ static size_t bech32_to_script(uint8_t *out, size_t outsz, const char *addr) {
 	return witprog_len + 2;
 }
 
-size_t address_to_script(unsigned char *out, size_t outsz, const char *addr)
-{
-	unsigned char addrbin[25];
-	int addrver;
-	size_t rv;
-
-	if (!b58dec(addrbin, sizeof(addrbin), addr))
-		return bech32_to_script(out, outsz, addr);
-	addrver = b58check(addrbin, sizeof(addrbin), addr);
-	if (addrver < 0)
-		return 0;
-	switch (addrver) {
-		case 5:    /* Bitcoin script hash */
-		case 196:  /* Testnet script hash */
-			if (outsz < (rv = 23))
-				return rv;
-			out[ 0] = 0xa9;  /* OP_HASH160 */
-			out[ 1] = 0x14;  /* push 20 bytes */
-			memcpy(&out[2], &addrbin[1], 20);
-			out[22] = 0x87;  /* OP_EQUAL */
-			return rv;
-		default:
-			if (outsz < (rv = 25))
-				return rv;
-			out[ 0] = 0x76;  /* OP_DUP */
-			out[ 1] = 0xa9;  /* OP_HASH160 */
-			out[ 2] = 0x14;  /* push 20 bytes */
-			memcpy(&out[3], &addrbin[1], 20);
-			out[23] = 0x88;  /* OP_EQUALVERIFY */
-			out[24] = 0xac;  /* OP_CHECKSIG */
-			return rv;
-	}
-}
-
 /* Subtract the `struct timeval' values X and Y,
    storing the result in RESULT.
    Return 1 if the difference is negative, otherwise 0.  */
