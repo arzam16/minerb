@@ -111,7 +111,6 @@ static const char *algo_names[] = {
 };
 
 bool opt_debug = false;
-bool opt_redirect = true;
 bool have_gbt = true;
 bool use_syslog = false;
 static bool opt_background = false;
@@ -171,7 +170,6 @@ Options:\n\
   -R, --retry-pause=N   time to pause between retries, in seconds (default: 30)\n\
   -T, --timeout=N       timeout for long polling, in seconds (default: none)\n\
       --no-gbt          disable getblocktemplate support\n\
-      --no-redirect     ignore requests to change the URL of the mining server\n\
   -q, --quiet           disable per-thread hashmeter output\n\
   -D, --debug           enable debug output\n"
 #ifdef HAVE_SYSLOG_H
@@ -206,7 +204,6 @@ static struct option const options[] = {
 	{ "debug", 0, NULL, 'D' },
 	{ "help", 0, NULL, 'h' },
 	{ "no-gbt", 0, NULL, 1011 },
-	{ "no-redirect", 0, NULL, 1009 },
 	{ "pass", 1, NULL, 'p' },
 	{ "proxy", 1, NULL, 'x' },
 	{ "quiet", 0, NULL, 'q' },
@@ -1341,9 +1338,6 @@ static void parse_arg(int key, char *arg, char *pname)
 			opt_proxy_type = CURLPROXY_HTTP;
 		free(opt_proxy);
 		opt_proxy = strdup(arg);
-		break;
-	case 1009:
-		opt_redirect = false;
 		break;
 	case 1011:
 		have_gbt = false;
