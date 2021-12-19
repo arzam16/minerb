@@ -24,7 +24,6 @@
 #include <errno.h>
 #include <unistd.h>
 #include <jansson.h>
-#include <curl/curl.h>
 #include <time.h>
 #if defined(WIN32)
 #include <winsock2.h>
@@ -223,29 +222,6 @@ static size_t upload_data_cb(void *ptr, size_t size, size_t nmemb,
 	return len;
 }
 
-#if LIBCURL_VERSION_NUM >= 0x071200
-static int seek_data_cb(void *user_data, curl_off_t offset, int origin)
-{
-	struct upload_buffer *ub = user_data;
-	
-	switch (origin) {
-	case SEEK_SET:
-		ub->pos = offset;
-		break;
-	case SEEK_CUR:
-		ub->pos += offset;
-		break;
-	case SEEK_END:
-		ub->pos = ub->len + offset;
-		break;
-	default:
-		return 1; /* CURL_SEEKFUNC_FAIL */
-	}
-
-	return 0; /* CURL_SEEKFUNC_OK */
-}
-#endif
-
 static size_t resp_hdr_cb(void *ptr, size_t size, size_t nmemb, void *user_data)
 {
 	struct header_info *hi = user_data;
@@ -296,175 +272,6 @@ out:
 	free(key);
 	free(val);
 	return ptrlen;
-}
-
-#if LIBCURL_VERSION_NUM >= 0x070f06
-static int sockopt_keepalive_cb(void *userdata, curl_socket_t fd,
-	curlsocktype purpose)
-{
-	int keepalive = 1;
-	int tcp_keepcnt = 3;
-	int tcp_keepidle = 50;
-	int tcp_keepintvl = 50;
-
-#ifndef WIN32
-	if (unlikely(setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &keepalive,
-		sizeof(keepalive))))
-		return 1;
-#ifdef __linux
-	if (unlikely(setsockopt(fd, SOL_TCP, TCP_KEEPCNT,
-		&tcp_keepcnt, sizeof(tcp_keepcnt))))
-		return 1;
-	if (unlikely(setsockopt(fd, SOL_TCP, TCP_KEEPIDLE,
-		&tcp_keepidle, sizeof(tcp_keepidle))))
-		return 1;
-	if (unlikely(setsockopt(fd, SOL_TCP, TCP_KEEPINTVL,
-		&tcp_keepintvl, sizeof(tcp_keepintvl))))
-		return 1;
-#endif /* __linux */
-#ifdef __APPLE_CC__
-	if (unlikely(setsockopt(fd, IPPROTO_TCP, TCP_KEEPALIVE,
-		&tcp_keepintvl, sizeof(tcp_keepintvl))))
-		return 1;
-#endif /* __APPLE_CC__ */
-#else /* WIN32 */
-	struct tcp_keepalive vals;
-	vals.onoff = 1;
-	vals.keepalivetime = tcp_keepidle * 1000;
-	vals.keepaliveinterval = tcp_keepintvl * 1000;
-	DWORD outputBytes;
-	if (unlikely(WSAIoctl(fd, SIO_KEEPALIVE_VALS, &vals, sizeof(vals),
-		NULL, 0, &outputBytes, NULL, NULL)))
-		return 1;
-#endif /* WIN32 */
-
-	return 0;
-}
-#endif
-
-json_t *json_rpc_call(CURL *curl, const char *url,
-		      const char *userpass, const char *rpc_req,
-		      int *curl_err, int flags)
-{
-	json_t *val, *err_val, *res_val;
-	int rc;
-	long http_rc;
-	struct data_buffer all_data = {0};
-	struct upload_buffer upload_data;
-	char *json_buf;
-	json_error_t err;
-	struct curl_slist *headers = NULL;
-	char len_hdr[64];
-	char curl_err_str[CURL_ERROR_SIZE];
-	long timeout = (flags & JSON_RPC_LONGPOLL) ? opt_timeout : 30;
-	struct header_info hi = {0};
-
-	/* it is assumed that 'curl' is freshly [re]initialized at this pt */
-
-	curl_easy_setopt(curl, CURLOPT_URL, url);
-	curl_easy_setopt(curl, CURLOPT_ENCODING, "");
-	curl_easy_setopt(curl, CURLOPT_FAILONERROR, 1);
-	curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);
-	curl_easy_setopt(curl, CURLOPT_TCP_NODELAY, 1);
-	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, all_data_cb);
-	curl_easy_setopt(curl, CURLOPT_WRITEDATA, &all_data);
-	curl_easy_setopt(curl, CURLOPT_READFUNCTION, upload_data_cb);
-	curl_easy_setopt(curl, CURLOPT_READDATA, &upload_data);
-#if LIBCURL_VERSION_NUM >= 0x071200
-	curl_easy_setopt(curl, CURLOPT_SEEKFUNCTION, &seek_data_cb);
-	curl_easy_setopt(curl, CURLOPT_SEEKDATA, &upload_data);
-#endif
-	curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, curl_err_str);
-	curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1);
-	curl_easy_setopt(curl, CURLOPT_TIMEOUT, timeout);
-	curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, resp_hdr_cb);
-	curl_easy_setopt(curl, CURLOPT_HEADERDATA, &hi);
-	if (userpass) {
-		curl_easy_setopt(curl, CURLOPT_USERPWD, userpass);
-		curl_easy_setopt(curl, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
-	}
-#if LIBCURL_VERSION_NUM >= 0x070f06
-	if (flags & JSON_RPC_LONGPOLL)
-		curl_easy_setopt(curl, CURLOPT_SOCKOPTFUNCTION, sockopt_keepalive_cb);
-#endif
-	curl_easy_setopt(curl, CURLOPT_POST, 1);
-
-	upload_data.buf = rpc_req;
-	upload_data.len = strlen(rpc_req);
-	upload_data.pos = 0;
-	sprintf(len_hdr, "Content-Length: %lu",
-		(unsigned long) upload_data.len);
-
-	headers = curl_slist_append(headers, "Content-Type: application/json");
-	headers = curl_slist_append(headers, len_hdr);
-	headers = curl_slist_append(headers, "User-Agent: " USER_AGENT);
-	headers = curl_slist_append(headers, "X-Mining-Extensions: midstate");
-	headers = curl_slist_append(headers, "Accept:"); /* disable Accept hdr*/
-	headers = curl_slist_append(headers, "Expect:"); /* disable Expect hdr*/
-
-	curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-
-	rc = curl_easy_perform(curl);
-	if (curl_err != NULL)
-		*curl_err = rc;
-	if (rc) {
-		curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_rc);
-		if (!((flags & JSON_RPC_LONGPOLL) && rc == CURLE_OPERATION_TIMEDOUT) &&
-		    !((flags & JSON_RPC_QUIET_404) && http_rc == 404))
-			applog(LOG_ERR, "HTTP request failed: %s", curl_err_str);
-		if (curl_err && (flags & JSON_RPC_QUIET_404) && http_rc == 404)
-			*curl_err = CURLE_OK;
-		goto err_out;
-	}
-
-	if (!all_data.buf) {
-		applog(LOG_ERR, "Empty data received in json_rpc_call.");
-		goto err_out;
-	}
-
-	json_buf = hack_json_numbers(all_data.buf);
-	errno = 0; /* needed for Jansson < 2.1 */
-	val = JSON_LOADS(json_buf, &err);
-	free(json_buf);
-	if (!val) {
-		applog(LOG_ERR, "JSON decode failed(%d): %s", err.line, err.text);
-		goto err_out;
-	}
-
-	/* JSON-RPC valid response returns a 'result' and a null 'error'. */
-	res_val = json_object_get(val, "result");
-	err_val = json_object_get(val, "error");
-
-	if (!res_val || (err_val && !json_is_null(err_val))) {
-		char *s;
-
-		if (err_val)
-			s = json_dumps(err_val, JSON_INDENT(3));
-		else
-			s = strdup("(unknown reason)");
-
-		applog(LOG_ERR, "JSON-RPC call failed: %s", s);
-
-		free(s);
-
-		goto err_out;
-	}
-
-	if (hi.reason)
-		json_object_set_new(val, "reject-reason", json_string(hi.reason));
-
-	databuf_free(&all_data);
-	curl_slist_free_all(headers);
-	curl_easy_reset(curl);
-	return val;
-
-err_out:
-	free(hi.lp_path);
-	free(hi.reason);
-	databuf_free(&all_data);
-	curl_slist_free_all(headers);
-	curl_easy_reset(curl);
-	return NULL;
 }
 
 void memrev(unsigned char *p, size_t len)
@@ -836,32 +643,8 @@ void diff_to_target(uint32_t *target, double diff)
 #define socket_blocks() (errno == EAGAIN || errno == EWOULDBLOCK)
 #endif
 
-static bool socket_full(curl_socket_t sock, int timeout)
-{
-	struct timeval tv;
-	fd_set rd;
-
-	FD_ZERO(&rd);
-	FD_SET(sock, &rd);
-	tv.tv_sec = timeout;
-	tv.tv_usec = 0;
-	if (select(sock + 1, &rd, NULL, NULL, &tv) > 0)
-		return true;
-	return false;
-}
-
 #define RBUFSIZE 2048
 #define RECVSIZE (RBUFSIZE - 4)
-
-#if LIBCURL_VERSION_NUM >= 0x071101 && LIBCURL_VERSION_NUM < 0x072d00
-static curl_socket_t opensocket_grab_cb(void *clientp, curlsocktype purpose,
-	struct curl_sockaddr *addr)
-{
-	curl_socket_t *sock = clientp;
-	*sock = socket(addr->family, addr->socktype, addr->protocol);
-	return *sock;
-}
-#endif
 
 struct thread_q *tq_new(void)
 {
