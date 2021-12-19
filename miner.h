@@ -171,7 +171,6 @@ struct work_restart {
 
 extern bool opt_debug;
 extern int opt_timeout;
-extern bool have_gbt;
 extern bool use_syslog;
 extern pthread_mutex_t applog_lock;
 extern struct thr_info *thr_info;

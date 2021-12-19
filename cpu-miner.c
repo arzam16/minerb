@@ -99,7 +99,6 @@ static const char *algo_names[] = {
 static const char *EMPTY = "";
 
 bool opt_debug = false;
-bool have_gbt = true;
 bool use_syslog = false;
 static bool opt_background = false;
 static bool opt_quiet = false;
@@ -141,7 +140,6 @@ Options:\n\
                           scrypt:N  scrypt(N, 1, 1)\n\
                           sha256d   SHA-256d\n\
   -t, --threads=N       number of miner threads (default: number of processors)\n\
-      --no-gbt          disable getblocktemplate support\n\
   -q, --quiet           disable per-thread hashmeter output\n\
   -D, --debug           enable debug output\n"
 #ifdef HAVE_SYSLOG_H
@@ -175,7 +173,6 @@ static struct option const options[] = {
 	{ "config", 1, NULL, 'c' },
 	{ "debug", 0, NULL, 'D' },
 	{ "help", 0, NULL, 'h' },
-	{ "no-gbt", 0, NULL, 1011 },
 	{ "quiet", 0, NULL, 'q' },
 #ifdef HAVE_SYSLOG_H
 	{ "syslog", 0, NULL, 'S' },
@@ -807,9 +804,6 @@ static void parse_arg(int key, char *arg, char *pname)
 		if (v < 1 || v > 9999)	/* sanity check */
 			show_usage_and_exit(1);
 		opt_n_threads = v;
-		break;
-	case 1011:
-		have_gbt = false;
 		break;
 	case 'S':
 		use_syslog = true;
