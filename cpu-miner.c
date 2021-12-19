@@ -111,7 +111,6 @@ static const char *algo_names[] = {
 };
 
 bool opt_debug = false;
-bool opt_protocol = false;
 bool opt_redirect = true;
 bool have_gbt = true;
 bool allow_getwork = true;
@@ -182,8 +181,7 @@ Options:\n\
       --no-gbt          disable getblocktemplate support\n\
       --no-redirect     ignore requests to change the URL of the mining server\n\
   -q, --quiet           disable per-thread hashmeter output\n\
-  -D, --debug           enable debug output\n\
-  -P, --protocol-dump   verbose dump of protocol-level activities\n"
+  -D, --debug           enable debug output\n"
 #ifdef HAVE_SYSLOG_H
 "\
   -S, --syslog          use system log for output messages\n"
@@ -205,7 +203,7 @@ static char const short_options[] =
 #ifdef HAVE_SYSLOG_H
 	"S"
 #endif
-	"a:c:Dhp:Px:qr:R:t:T:o:u:O:V";
+	"a:c:Dhp:x:qr:R:t:T:o:u:O:V";
 
 static struct option const options[] = {
 	{ "algo", 1, NULL, 'a' },
@@ -222,7 +220,6 @@ static struct option const options[] = {
 	{ "no-getwork", 0, NULL, 1010 },
 	{ "no-redirect", 0, NULL, 1009 },
 	{ "pass", 1, NULL, 'p' },
-	{ "protocol-dump", 0, NULL, 'P' },
 	{ "proxy", 1, NULL, 'x' },
 	{ "quiet", 0, NULL, 'q' },
 	{ "retries", 1, NULL, 'r' },
@@ -1329,9 +1326,6 @@ static void parse_arg(int key, char *arg, char *pname)
 		free(rpc_pass);
 		rpc_pass = strdup(arg);
 		strhide(arg);
-		break;
-	case 'P':
-		opt_protocol = true;
 		break;
 	case 'r':
 		v = atoi(arg);

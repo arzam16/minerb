@@ -361,8 +361,6 @@ json_t *json_rpc_call(CURL *curl, const char *url,
 
 	/* it is assumed that 'curl' is freshly [re]initialized at this pt */
 
-	if (opt_protocol)
-		curl_easy_setopt(curl, CURLOPT_VERBOSE, 1);
 	curl_easy_setopt(curl, CURLOPT_URL, url);
 	if (opt_cert)
 		curl_easy_setopt(curl, CURLOPT_CAINFO, opt_cert);
@@ -397,9 +395,6 @@ json_t *json_rpc_call(CURL *curl, const char *url,
 		curl_easy_setopt(curl, CURLOPT_SOCKOPTFUNCTION, sockopt_keepalive_cb);
 #endif
 	curl_easy_setopt(curl, CURLOPT_POST, 1);
-
-	if (opt_protocol)
-		applog(LOG_DEBUG, "JSON protocol request:\n%s\n", rpc_req);
 
 	upload_data.buf = rpc_req;
 	upload_data.len = strlen(rpc_req);
@@ -441,12 +436,6 @@ json_t *json_rpc_call(CURL *curl, const char *url,
 	if (!val) {
 		applog(LOG_ERR, "JSON decode failed(%d): %s", err.line, err.text);
 		goto err_out;
-	}
-
-	if (opt_protocol) {
-		char *s = json_dumps(val, JSON_INDENT(3));
-		applog(LOG_DEBUG, "JSON protocol response:\n%s", s);
-		free(s);
 	}
 
 	/* JSON-RPC valid response returns a 'result' and a null 'error'. */
