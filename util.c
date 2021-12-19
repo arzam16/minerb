@@ -609,25 +609,6 @@ struct thread_q *tq_new(void)
 	return tq;
 }
 
-void tq_free(struct thread_q *tq)
-{
-	struct tq_ent *ent, *iter;
-
-	if (!tq)
-		return;
-
-	list_for_each_entry_safe(ent, iter, &tq->q, q_node, struct tq_ent) {
-		list_del(&ent->q_node);
-		free(ent);
-	}
-
-	pthread_cond_destroy(&tq->cond);
-	pthread_mutex_destroy(&tq->mutex);
-
-	memset(tq, 0, sizeof(*tq));	/* poison */
-	free(tq);
-}
-
 static void tq_freezethaw(struct thread_q *tq, bool frozen)
 {
 	pthread_mutex_lock(&tq->mutex);
@@ -641,68 +622,4 @@ static void tq_freezethaw(struct thread_q *tq, bool frozen)
 void tq_freeze(struct thread_q *tq)
 {
 	tq_freezethaw(tq, true);
-}
-
-void tq_thaw(struct thread_q *tq)
-{
-	tq_freezethaw(tq, false);
-}
-
-bool tq_push(struct thread_q *tq, void *data)
-{
-	struct tq_ent *ent;
-	bool rc = true;
-
-	ent = calloc(1, sizeof(*ent));
-	if (!ent)
-		return false;
-
-	ent->data = data;
-	INIT_LIST_HEAD(&ent->q_node);
-
-	pthread_mutex_lock(&tq->mutex);
-
-	if (!tq->frozen) {
-		list_add_tail(&ent->q_node, &tq->q);
-	} else {
-		free(ent);
-		rc = false;
-	}
-
-	pthread_cond_signal(&tq->cond);
-	pthread_mutex_unlock(&tq->mutex);
-
-	return rc;
-}
-
-void *tq_pop(struct thread_q *tq, const struct timespec *abstime)
-{
-	struct tq_ent *ent;
-	void *rval = NULL;
-	int rc;
-
-	pthread_mutex_lock(&tq->mutex);
-
-	if (!list_empty(&tq->q))
-		goto pop;
-
-	if (abstime)
-		rc = pthread_cond_timedwait(&tq->cond, &tq->mutex, abstime);
-	else
-		rc = pthread_cond_wait(&tq->cond, &tq->mutex);
-	if (rc)
-		goto out;
-	if (list_empty(&tq->q))
-		goto out;
-
-pop:
-	ent = list_entry(tq->q.next, struct tq_ent, q_node);
-	rval = ent->data;
-
-	list_del(&ent->q_node);
-	free(ent);
-
-out:
-	pthread_mutex_unlock(&tq->mutex);
-	return rval;
 }
