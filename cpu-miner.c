@@ -96,20 +96,16 @@ static const char *algo_names[] = {
 	[ALGO_SHA256D]		= "sha256d",
 };
 
-static const char *EMPTY = "";
-
 bool opt_debug = false;
 bool use_syslog = false;
 static bool opt_background = false;
 static bool opt_quiet = false;
-static int opt_fail_pause = 30;
 int opt_timeout = 0;
 static int opt_scantime = 5;
 static enum algos opt_algo = ALGO_SCRYPT;
 static int opt_scrypt_n = 1024;
 static int opt_n_threads;
 static int num_processors;
-static unsigned char pk_script[42];
 struct thr_info *thr_info;
 int longpoll_thr_id = -1;
 struct work_restart *work_restart = NULL;
@@ -198,8 +194,6 @@ struct work {
 static struct work g_work;
 static time_t g_work_time;
 static pthread_mutex_t g_work_lock;
-static bool submit_old = false;
-static char *lp_id;
 
 static inline void work_free(struct work *w)
 {
@@ -516,18 +510,8 @@ static void share_result(int result, const char *reason)
 		applog(LOG_DEBUG, "DEBUG: reject reason: %s", reason);
 }
 
-static const char *getwork_req =
-	"{\"method\": \"getwork\", \"params\": [], \"id\":0}\r\n";
-
 #define GBT_CAPABILITIES "[\"coinbasetxn\", \"coinbasevalue\", \"longpoll\", \"workid\"]"
 #define GBT_RULES "[\"segwit\"]"
-
-static const char *gbt_req =
-	"{\"method\": \"getblocktemplate\", \"params\": [{\"capabilities\": "
-	GBT_CAPABILITIES ", \"rules\": " GBT_RULES "}], \"id\":0}\r\n";
-static const char *gbt_lp_req =
-	"{\"method\": \"getblocktemplate\", \"params\": [{\"capabilities\": "
-	GBT_CAPABILITIES ", \"rules\": " GBT_RULES ", \"longpollid\": \"%s\"}], \"id\":0}\r\n";
 
 static bool get_work(struct thr_info *thr, struct work *work)
 {
@@ -746,7 +730,6 @@ static void parse_config(json_t *config, char *pname, char *ref);
 
 static void parse_arg(int key, char *arg, char *pname)
 {
-	char *p;
 	int v, i;
 
 	switch(key) {
