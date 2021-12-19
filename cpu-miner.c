@@ -115,7 +115,6 @@ bool have_gbt = true;
 bool use_syslog = false;
 static bool opt_background = false;
 static bool opt_quiet = false;
-static int opt_retries = -1;
 static int opt_fail_pause = 30;
 int opt_timeout = 0;
 static int opt_scantime = 5;
@@ -162,8 +161,6 @@ Options:\n\
   -u, --user=USERNAME   username for mining server\n\
   -p, --pass=PASSWORD   password for mining server\n\
   -t, --threads=N       number of miner threads (default: number of processors)\n\
-  -r, --retries=N       number of times to retry if a network call fails\n\
-                          (default: retry indefinitely)\n\
   -R, --retry-pause=N   time to pause between retries, in seconds (default: 30)\n\
   -T, --timeout=N       timeout for long polling, in seconds (default: none)\n\
       --no-gbt          disable getblocktemplate support\n\
@@ -190,7 +187,7 @@ static char const short_options[] =
 #ifdef HAVE_SYSLOG_H
 	"S"
 #endif
-	"a:c:Dhp:qr:R:t:T:o:u:O:V";
+	"a:c:Dhp:q:R:t:T:o:u:O:V";
 
 static struct option const options[] = {
 	{ "algo", 1, NULL, 'a' },
@@ -203,7 +200,6 @@ static struct option const options[] = {
 	{ "no-gbt", 0, NULL, 1011 },
 	{ "pass", 1, NULL, 'p' },
 	{ "quiet", 0, NULL, 'q' },
-	{ "retries", 1, NULL, 'r' },
 	{ "retry-pause", 1, NULL, 'R' },
 #ifdef HAVE_SYSLOG_H
 	{ "syslog", 0, NULL, 'S' },
@@ -738,12 +734,6 @@ static bool workio_get_work(struct workio_cmd *wc, CURL *curl)
 
 	/* obtain new work from bitcoin via JSON-RPC */
 	while (!get_upstream_work(curl, ret_work)) {
-		if (unlikely((opt_retries >= 0) && (++failures > opt_retries))) {
-			applog(LOG_ERR, "json_rpc_call failed, terminating workio thread");
-			free(ret_work);
-			return false;
-		}
-
 		/* pause, then restart work-request loop */
 		applog(LOG_ERR, "json_rpc_call failed, retry after %d seconds",
 			opt_fail_pause);
@@ -763,11 +753,6 @@ static bool workio_submit_work(struct workio_cmd *wc, CURL *curl)
 
 	/* submit solution to bitcoin via JSON-RPC */
 	while (!submit_upstream_work(curl, wc->u.work)) {
-		if (unlikely((opt_retries >= 0) && (++failures > opt_retries))) {
-			applog(LOG_ERR, "...terminating workio thread");
-			return false;
-		}
-
 		/* pause, then restart work-request loop */
 		applog(LOG_ERR, "...retry after %d seconds",
 			opt_fail_pause);
@@ -1224,12 +1209,6 @@ static void parse_arg(int key, char *arg, char *pname)
 		free(rpc_pass);
 		rpc_pass = strdup(arg);
 		strhide(arg);
-		break;
-	case 'r':
-		v = atoi(arg);
-		if (v < -1 || v > 9999)	/* sanity check */
-			show_usage_and_exit(1);
-		opt_retries = v;
 		break;
 	case 'R':
 		v = atoi(arg);
