@@ -127,8 +127,6 @@ static char *rpc_url;
 static char *rpc_userpass;
 static char *rpc_user, *rpc_pass;
 static unsigned char pk_script[42];
-char *opt_proxy;
-long opt_proxy_type;
 struct thr_info *thr_info;
 static int work_thr_id;
 int longpoll_thr_id = -1;
@@ -163,7 +161,6 @@ Options:\n\
   -O, --userpass=U:P    username:password pair for mining server\n\
   -u, --user=USERNAME   username for mining server\n\
   -p, --pass=PASSWORD   password for mining server\n\
-  -x, --proxy=[PROTOCOL://]HOST[:PORT]  connect through a proxy\n\
   -t, --threads=N       number of miner threads (default: number of processors)\n\
   -r, --retries=N       number of times to retry if a network call fails\n\
                           (default: retry indefinitely)\n\
@@ -193,7 +190,7 @@ static char const short_options[] =
 #ifdef HAVE_SYSLOG_H
 	"S"
 #endif
-	"a:c:Dhp:x:qr:R:t:T:o:u:O:V";
+	"a:c:Dhp:qr:R:t:T:o:u:O:V";
 
 static struct option const options[] = {
 	{ "algo", 1, NULL, 'a' },
@@ -205,7 +202,6 @@ static struct option const options[] = {
 	{ "help", 0, NULL, 'h' },
 	{ "no-gbt", 0, NULL, 1011 },
 	{ "pass", 1, NULL, 'p' },
-	{ "proxy", 1, NULL, 'x' },
 	{ "quiet", 0, NULL, 'q' },
 	{ "retries", 1, NULL, 'r' },
 	{ "retry-pause", 1, NULL, 'R' },
@@ -1322,22 +1318,6 @@ static void parse_arg(int key, char *arg, char *pname)
 		free(rpc_pass);
 		rpc_pass = strdup(++p);
 		strhide(p);
-		break;
-	case 'x':			/* --proxy */
-		if (!strncasecmp(arg, "socks4://", 9))
-			opt_proxy_type = CURLPROXY_SOCKS4;
-		else if (!strncasecmp(arg, "socks5://", 9))
-			opt_proxy_type = CURLPROXY_SOCKS5;
-#if LIBCURL_VERSION_NUM >= 0x071200
-		else if (!strncasecmp(arg, "socks4a://", 10))
-			opt_proxy_type = CURLPROXY_SOCKS4A;
-		else if (!strncasecmp(arg, "socks5h://", 10))
-			opt_proxy_type = CURLPROXY_SOCKS5_HOSTNAME;
-#endif
-		else
-			opt_proxy_type = CURLPROXY_HTTP;
-		free(opt_proxy);
-		opt_proxy = strdup(arg);
 		break;
 	case 1011:
 		have_gbt = false;

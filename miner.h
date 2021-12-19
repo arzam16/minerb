@@ -173,8 +173,6 @@ struct work_restart {
 extern bool opt_debug;
 extern int opt_timeout;
 extern bool have_gbt;
-extern char *opt_proxy;
-extern long opt_proxy_type;
 extern bool use_syslog;
 extern pthread_mutex_t applog_lock;
 extern struct thr_info *thr_info;
