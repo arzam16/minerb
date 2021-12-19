@@ -175,7 +175,6 @@ extern bool opt_redirect;
 extern int opt_timeout;
 extern bool have_gbt;
 extern bool allow_getwork;
-extern char *opt_cert;
 extern char *opt_proxy;
 extern long opt_proxy_type;
 extern bool use_syslog;

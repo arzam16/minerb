@@ -131,7 +131,6 @@ static char *rpc_user, *rpc_pass;
 static int pk_script_size;
 static unsigned char pk_script[42];
 static char coinbase_sig[101] = "";
-char *opt_cert;
 char *opt_proxy;
 long opt_proxy_type;
 struct thr_info *thr_info;
@@ -168,7 +167,6 @@ Options:\n\
   -O, --userpass=U:P    username:password pair for mining server\n\
   -u, --user=USERNAME   username for mining server\n\
   -p, --pass=PASSWORD   password for mining server\n\
-      --cert=FILE       certificate for mining server using SSL\n\
   -x, --proxy=[PROTOCOL://]HOST[:PORT]  connect through a proxy\n\
   -t, --threads=N       number of miner threads (default: number of processors)\n\
   -r, --retries=N       number of times to retry if a network call fails\n\
@@ -210,7 +208,6 @@ static struct option const options[] = {
 #ifndef WIN32
 	{ "background", 0, NULL, 'B' },
 #endif
-	{ "cert", 1, NULL, 1001 },
 	{ "coinbase-addr", 1, NULL, 1013 },
 	{ "coinbase-sig", 1, NULL, 1015 },
 	{ "config", 1, NULL, 'c' },
@@ -1436,10 +1433,6 @@ static void parse_arg(int key, char *arg, char *pname)
 			opt_proxy_type = CURLPROXY_HTTP;
 		free(opt_proxy);
 		opt_proxy = strdup(arg);
-		break;
-	case 1001:
-		free(opt_cert);
-		opt_cert = strdup(arg);
 		break;
 	case 1009:
 		opt_redirect = false;
