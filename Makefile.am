@@ -2,8 +2,6 @@ EXTRA_DIST	= nomacro.pl
 
 bin_PROGRAMS	= minerb
 
-dist_man_MANS	= minerb.1
-
 minerb_SOURCES	= elist.h miner.h compat.h \
 		  cpu-miner.c util.c \
 		  sha2.c scrypt.c
