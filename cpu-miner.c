@@ -129,7 +129,6 @@ static char *rpc_url;
 static char *rpc_userpass;
 static char *rpc_user, *rpc_pass;
 static unsigned char pk_script[42];
-static char coinbase_sig[101] = "";
 char *opt_proxy;
 long opt_proxy_type;
 struct thr_info *thr_info;
@@ -172,7 +171,6 @@ Options:\n\
                           (default: retry indefinitely)\n\
   -R, --retry-pause=N   time to pause between retries, in seconds (default: 30)\n\
   -T, --timeout=N       timeout for long polling, in seconds (default: none)\n\
-      --coinbase-sig=TEXT  data to insert in the coinbase when possible\n\
       --no-getwork      disable getwork support\n\
       --no-gbt          disable getblocktemplate support\n\
       --no-redirect     ignore requests to change the URL of the mining server\n\
@@ -206,7 +204,6 @@ static struct option const options[] = {
 #ifndef WIN32
 	{ "background", 0, NULL, 'B' },
 #endif
-	{ "coinbase-sig", 1, NULL, 1015 },
 	{ "config", 1, NULL, 'c' },
 	{ "debug", 0, NULL, 'D' },
 	{ "help", 0, NULL, 'h' },
@@ -426,15 +423,6 @@ static bool gbt_work_decode(const json_t *val, struct work *work)
 	if (coinbase_append) {
 		unsigned char xsig[100];
 		int xsig_len = 0;
-		if (*coinbase_sig) {
-			n = strlen(coinbase_sig);
-			if (cbtx[41] + xsig_len + n <= 100) {
-				memcpy(xsig+xsig_len, coinbase_sig, n);
-				xsig_len += n;
-			} else {
-				applog(LOG_WARNING, "Signature does not fit in coinbase, skipping");
-			}
-		}
 		tmp = json_object_get(val, "coinbaseaux");
 		if (tmp && json_is_object(tmp)) {
 			void *iter = json_object_iter(tmp);
@@ -1365,13 +1353,6 @@ static void parse_arg(int key, char *arg, char *pname)
 		break;
 	case 1011:
 		have_gbt = false;
-		break;
-	case 1015:			/* --coinbase-sig */
-		if (strlen(arg) + 1 > sizeof(coinbase_sig)) {
-			fprintf(stderr, "%s: coinbase signature too long\n", pname);
-			show_usage_and_exit(1);
-		}
-		strcpy(coinbase_sig, arg);
 		break;
 	case 'S':
 		use_syslog = true;
