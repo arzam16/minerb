@@ -124,7 +124,6 @@ static enum algos opt_algo = ALGO_SCRYPT;
 static int opt_scrypt_n = 1024;
 static int opt_n_threads;
 static int num_processors;
-static char *rpc_url;
 static unsigned char pk_script[42];
 struct thr_info *thr_info;
 static int work_thr_id;
@@ -156,7 +155,6 @@ Options:\n\
                           scrypt    scrypt(1024, 1, 1) (default)\n\
                           scrypt:N  scrypt(N, 1, 1)\n\
                           sha256d   SHA-256d\n\
-  -o, --url=URL         URL of mining server\n\
   -t, --threads=N       number of miner threads (default: number of processors)\n\
       --no-gbt          disable getblocktemplate support\n\
   -q, --quiet           disable per-thread hashmeter output\n\
@@ -182,7 +180,7 @@ static char const short_options[] =
 #ifdef HAVE_SYSLOG_H
 	"S"
 #endif
-	"a:c:Dh:q:t:o:V";
+	"a:c:Dh:q:t:V";
 
 static struct option const options[] = {
 	{ "algo", 1, NULL, 'a' },
@@ -198,7 +196,6 @@ static struct option const options[] = {
 	{ "syslog", 0, NULL, 'S' },
 #endif
 	{ "threads", 1, NULL, 't' },
-	{ "url", 1, NULL, 'o' },
 	{ "version", 0, NULL, 'V' },
 	{ 0, 0, 0, 0 }
 };
@@ -575,7 +572,7 @@ static bool submit_upstream_work(CURL *curl, struct work *work)
 				"{\"method\": \"submitblock\", \"params\": [\"%s%s\"], \"id\":1}\r\n",
 				data_str, work->txs);
 		}
-		val = json_rpc_call(curl, rpc_url, EMPTY, req, NULL, 0);
+		val = json_rpc_call(curl, EMPTY, EMPTY, req, NULL, 0);
 		free(req);
 		if (unlikely(!val)) {
 			applog(LOG_ERR, "submit_upstream_work json_rpc_call failed");
@@ -613,7 +610,7 @@ static bool submit_upstream_work(CURL *curl, struct work *work)
 			data_str);
 
 		/* issue JSON-RPC request */
-		val = json_rpc_call(curl, rpc_url, EMPTY, s, NULL, 0);
+		val = json_rpc_call(curl, EMPTY, EMPTY, s, NULL, 0);
 		if (unlikely(!val)) {
 			applog(LOG_ERR, "submit_upstream_work json_rpc_call failed");
 			goto out;
@@ -654,7 +651,7 @@ static bool get_upstream_work(CURL *curl, struct work *work)
 
 start:
 	gettimeofday(&tv_start, NULL);
-	val = json_rpc_call(curl, rpc_url, EMPTY,
+	val = json_rpc_call(curl, EMPTY, EMPTY,
 			    have_gbt ? gbt_req : getwork_req,
 			    &err, have_gbt ? JSON_RPC_QUIET_404 : 0);
 	gettimeofday(&tv_end, NULL);
@@ -1000,14 +997,14 @@ start:
 	/* absolute path, on current server */
 	else {
 		copy_start = (*hdr_path == '/') ? (hdr_path + 1) : hdr_path;
-		if (rpc_url[strlen(rpc_url) - 1] != '/')
+		if (EMPTY[strlen(EMPTY) - 1] != '/')
 			need_slash = true;
 
-		lp_url = malloc(strlen(rpc_url) + strlen(copy_start) + 2);
+		lp_url = malloc(strlen(EMPTY) + strlen(copy_start) + 2);
 		if (!lp_url)
 			goto out;
 
-		sprintf(lp_url, "%s%s%s", rpc_url, need_slash ? "/" : "", copy_start);
+		sprintf(lp_url, "%s%s%s", EMPTY, need_slash ? "/" : "", copy_start);
 	}
 
 	applog(LOG_INFO, "Long-polling activated for %s", lp_url);
@@ -1201,33 +1198,6 @@ static void parse_arg(int key, char *arg, char *pname)
 			show_usage_and_exit(1);
 		opt_n_threads = v;
 		break;
-	case 'o': {			/* --url */
-		char *ap, *hp;
-		ap = strstr(arg, "://");
-		ap = ap ? ap + 3 : arg;
-		hp = ap;
-		if (ap != arg) {
-			if (strncasecmp(arg, "http://", 7) &&
-			    strncasecmp(arg, "https://", 8)) {
-				fprintf(stderr, "%s: unknown protocol -- '%s'\n",
-					pname, arg);
-				show_usage_and_exit(1);
-			}
-			free(rpc_url);
-			rpc_url = strdup(arg);
-			strcpy(rpc_url + (ap - arg), hp);
-		} else {
-			if (*hp == '\0' || *hp == '/') {
-				fprintf(stderr, "%s: invalid URL -- '%s'\n",
-					pname, arg);
-				show_usage_and_exit(1);
-			}
-			free(rpc_url);
-			rpc_url = malloc(strlen(hp) + 8);
-			sprintf(rpc_url, "http://%s", hp);
-		}
-		break;
-	}
 	case 1011:
 		have_gbt = false;
 		break;
