@@ -176,8 +176,6 @@ Options:\n\
                           (default: retry indefinitely)\n\
   -R, --retry-pause=N   time to pause between retries, in seconds (default: 30)\n\
   -T, --timeout=N       timeout for long polling, in seconds (default: none)\n\
-  -s, --scantime=N      upper bound on time spent scanning current work when\n\
-                          long polling is unavailable, in seconds (default: 5)\n\
       --coinbase-addr=ADDR  payout address for solo mining\n\
       --coinbase-sig=TEXT  data to insert in the coinbase when possible\n\
       --no-getwork      disable getwork support\n\
@@ -207,7 +205,7 @@ static char const short_options[] =
 #ifdef HAVE_SYSLOG_H
 	"S"
 #endif
-	"a:c:Dhp:Px:qr:R:s:t:T:o:u:O:V";
+	"a:c:Dhp:Px:qr:R:t:T:o:u:O:V";
 
 static struct option const options[] = {
 	{ "algo", 1, NULL, 'a' },
@@ -229,7 +227,6 @@ static struct option const options[] = {
 	{ "quiet", 0, NULL, 'q' },
 	{ "retries", 1, NULL, 'r' },
 	{ "retry-pause", 1, NULL, 'R' },
-	{ "scantime", 1, NULL, 's' },
 #ifdef HAVE_SYSLOG_H
 	{ "syslog", 0, NULL, 'S' },
 #endif
@@ -1347,12 +1344,6 @@ static void parse_arg(int key, char *arg, char *pname)
 		if (v < 1 || v > 9999)	/* sanity check */
 			show_usage_and_exit(1);
 		opt_fail_pause = v;
-		break;
-	case 's':
-		v = atoi(arg);
-		if (v < 1 || v > 9999)	/* sanity check */
-			show_usage_and_exit(1);
-		opt_scantime = v;
 		break;
 	case 'T':
 		v = atoi(arg);
