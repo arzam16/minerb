@@ -161,7 +161,6 @@ Options:\n\
   -u, --user=USERNAME   username for mining server\n\
   -p, --pass=PASSWORD   password for mining server\n\
   -t, --threads=N       number of miner threads (default: number of processors)\n\
-  -R, --retry-pause=N   time to pause between retries, in seconds (default: 30)\n\
   -T, --timeout=N       timeout for long polling, in seconds (default: none)\n\
       --no-gbt          disable getblocktemplate support\n\
   -q, --quiet           disable per-thread hashmeter output\n\
@@ -187,7 +186,7 @@ static char const short_options[] =
 #ifdef HAVE_SYSLOG_H
 	"S"
 #endif
-	"a:c:Dhp:q:R:t:T:o:u:O:V";
+	"a:c:Dhp:q:t:T:o:u:O:V";
 
 static struct option const options[] = {
 	{ "algo", 1, NULL, 'a' },
@@ -200,7 +199,6 @@ static struct option const options[] = {
 	{ "no-gbt", 0, NULL, 1011 },
 	{ "pass", 1, NULL, 'p' },
 	{ "quiet", 0, NULL, 'q' },
-	{ "retry-pause", 1, NULL, 'R' },
 #ifdef HAVE_SYSLOG_H
 	{ "syslog", 0, NULL, 'S' },
 #endif
@@ -1209,12 +1207,6 @@ static void parse_arg(int key, char *arg, char *pname)
 		free(rpc_pass);
 		rpc_pass = strdup(arg);
 		strhide(arg);
-		break;
-	case 'R':
-		v = atoi(arg);
-		if (v < 1 || v > 9999)	/* sanity check */
-			show_usage_and_exit(1);
-		opt_fail_pause = v;
 		break;
 	case 'T':
 		v = atoi(arg);
