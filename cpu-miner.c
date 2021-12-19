@@ -110,6 +110,8 @@ static const char *algo_names[] = {
 	[ALGO_SHA256D]		= "sha256d",
 };
 
+static const char *EMPTY = "";
+
 bool opt_debug = false;
 bool have_gbt = true;
 bool use_syslog = false;
@@ -123,8 +125,6 @@ static int opt_scrypt_n = 1024;
 static int opt_n_threads;
 static int num_processors;
 static char *rpc_url;
-static char *rpc_userpass;
-static char *rpc_user, *rpc_pass;
 static unsigned char pk_script[42];
 struct thr_info *thr_info;
 static int work_thr_id;
@@ -575,7 +575,7 @@ static bool submit_upstream_work(CURL *curl, struct work *work)
 				"{\"method\": \"submitblock\", \"params\": [\"%s%s\"], \"id\":1}\r\n",
 				data_str, work->txs);
 		}
-		val = json_rpc_call(curl, rpc_url, rpc_userpass, req, NULL, 0);
+		val = json_rpc_call(curl, rpc_url, EMPTY, req, NULL, 0);
 		free(req);
 		if (unlikely(!val)) {
 			applog(LOG_ERR, "submit_upstream_work json_rpc_call failed");
@@ -613,7 +613,7 @@ static bool submit_upstream_work(CURL *curl, struct work *work)
 			data_str);
 
 		/* issue JSON-RPC request */
-		val = json_rpc_call(curl, rpc_url, rpc_userpass, s, NULL, 0);
+		val = json_rpc_call(curl, rpc_url, EMPTY, s, NULL, 0);
 		if (unlikely(!val)) {
 			applog(LOG_ERR, "submit_upstream_work json_rpc_call failed");
 			goto out;
@@ -654,7 +654,7 @@ static bool get_upstream_work(CURL *curl, struct work *work)
 
 start:
 	gettimeofday(&tv_start, NULL);
-	val = json_rpc_call(curl, rpc_url, rpc_userpass,
+	val = json_rpc_call(curl, rpc_url, EMPTY,
 			    have_gbt ? gbt_req : getwork_req,
 			    &err, have_gbt ? JSON_RPC_QUIET_404 : 0);
 	gettimeofday(&tv_end, NULL);
@@ -1021,7 +1021,7 @@ start:
 			req = malloc(strlen(gbt_lp_req) + strlen(lp_id) + 1);
 			sprintf(req, gbt_lp_req, lp_id);
 		}
-		val = json_rpc_call(curl, lp_url, rpc_userpass,
+		val = json_rpc_call(curl, lp_url, EMPTY,
 				    req ? req : getwork_req, &err,
 				    JSON_RPC_LONGPOLL);
 		free(req);
@@ -1205,30 +1205,7 @@ static void parse_arg(int key, char *arg, char *pname)
 		char *ap, *hp;
 		ap = strstr(arg, "://");
 		ap = ap ? ap + 3 : arg;
-		hp = strrchr(arg, '@');
-		if (hp) {
-			*hp = '\0';
-			p = strchr(ap, ':');
-			if (p) {
-				free(rpc_userpass);
-				rpc_userpass = strdup(ap);
-				free(rpc_user);
-				rpc_user = calloc(p - ap + 1, 1);
-				strncpy(rpc_user, ap, p - ap);
-				free(rpc_pass);
-				rpc_pass = strdup(++p);
-				if (*p) *p++ = 'x';
-				v = strlen(hp + 1) + 1;
-				memmove(p + 1, hp + 1, v);
-				memset(p + v, 0, hp - p);
-				hp = p;
-			} else {
-				free(rpc_user);
-				rpc_user = strdup(ap);
-			}
-			*hp++ = '@';
-		} else
-			hp = ap;
+		hp = ap;
 		if (ap != arg) {
 			if (strncasecmp(arg, "http://", 7) &&
 			    strncasecmp(arg, "https://", 8)) {
@@ -1348,18 +1325,8 @@ int main(int argc, char *argv[])
 	long flags;
 	int i;
 
-	rpc_user = strdup("");
-	rpc_pass = strdup("");
-
 	/* parse command line */
 	parse_cmdline(argc, argv);
-
-	if (!rpc_userpass) {
-		rpc_userpass = malloc(strlen(rpc_user) + strlen(rpc_pass) + 2);
-		if (!rpc_userpass)
-			return 1;
-		sprintf(rpc_userpass, "%s:%s", rpc_user, rpc_pass);
-	}
 
 	pthread_mutex_init(&applog_lock, NULL);
 	pthread_mutex_init(&stats_lock, NULL);
