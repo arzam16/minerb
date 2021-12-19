@@ -113,7 +113,6 @@ static const char *algo_names[] = {
 bool opt_debug = false;
 bool opt_redirect = true;
 bool have_gbt = true;
-bool allow_getwork = true;
 bool use_syslog = false;
 static bool opt_background = false;
 static bool opt_quiet = false;
@@ -171,7 +170,6 @@ Options:\n\
                           (default: retry indefinitely)\n\
   -R, --retry-pause=N   time to pause between retries, in seconds (default: 30)\n\
   -T, --timeout=N       timeout for long polling, in seconds (default: none)\n\
-      --no-getwork      disable getwork support\n\
       --no-gbt          disable getblocktemplate support\n\
       --no-redirect     ignore requests to change the URL of the mining server\n\
   -q, --quiet           disable per-thread hashmeter output\n\
@@ -208,7 +206,6 @@ static struct option const options[] = {
 	{ "debug", 0, NULL, 'D' },
 	{ "help", 0, NULL, 'h' },
 	{ "no-gbt", 0, NULL, 1011 },
-	{ "no-getwork", 0, NULL, 1010 },
 	{ "no-redirect", 0, NULL, 1009 },
 	{ "pass", 1, NULL, 'p' },
 	{ "proxy", 1, NULL, 'x' },
@@ -683,14 +680,14 @@ start:
 			    &err, have_gbt ? JSON_RPC_QUIET_404 : 0);
 	gettimeofday(&tv_end, NULL);
 
-	if (!have_gbt && !allow_getwork) {
+	if (!have_gbt) {
 		applog(LOG_ERR, "No usable protocol");
 		if (val)
 			json_decref(val);
 		return false;
 	}
 
-	if (have_gbt && allow_getwork && !val && err == CURLE_OK) {
+	if (have_gbt && !val && err == CURLE_OK) {
 		applog(LOG_INFO, "getblocktemplate failed, falling back to getwork");
 		have_gbt = false;
 		goto start;
@@ -1347,9 +1344,6 @@ static void parse_arg(int key, char *arg, char *pname)
 		break;
 	case 1009:
 		opt_redirect = false;
-		break;
-	case 1010:
-		allow_getwork = false;
 		break;
 	case 1011:
 		have_gbt = false;
