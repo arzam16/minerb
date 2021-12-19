@@ -157,7 +157,6 @@ Options:\n\
                           scrypt:N  scrypt(N, 1, 1)\n\
                           sha256d   SHA-256d\n\
   -o, --url=URL         URL of mining server\n\
-  -O, --userpass=U:P    username:password pair for mining server\n\
   -t, --threads=N       number of miner threads (default: number of processors)\n\
       --no-gbt          disable getblocktemplate support\n\
   -q, --quiet           disable per-thread hashmeter output\n\
@@ -183,7 +182,7 @@ static char const short_options[] =
 #ifdef HAVE_SYSLOG_H
 	"S"
 #endif
-	"a:c:Dh:q:t:o:O:V";
+	"a:c:Dh:q:t:o:V";
 
 static struct option const options[] = {
 	{ "algo", 1, NULL, 'a' },
@@ -200,7 +199,6 @@ static struct option const options[] = {
 #endif
 	{ "threads", 1, NULL, 't' },
 	{ "url", 1, NULL, 'o' },
-	{ "userpass", 1, NULL, 'O' },
 	{ "version", 0, NULL, 'V' },
 	{ 0, 0, 0, 0 }
 };
@@ -1253,22 +1251,6 @@ static void parse_arg(int key, char *arg, char *pname)
 		}
 		break;
 	}
-	case 'O':			/* --userpass */
-		p = strchr(arg, ':');
-		if (!p) {
-			fprintf(stderr, "%s: invalid username:password pair -- '%s'\n",
-				pname, arg);
-			show_usage_and_exit(1);
-		}
-		free(rpc_userpass);
-		rpc_userpass = strdup(arg);
-		free(rpc_user);
-		rpc_user = calloc(p - arg + 1, 1);
-		strncpy(rpc_user, arg, p - arg);
-		free(rpc_pass);
-		rpc_pass = strdup(++p);
-		strhide(p);
-		break;
 	case 1011:
 		have_gbt = false;
 		break;
