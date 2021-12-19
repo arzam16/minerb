@@ -145,7 +145,6 @@ Options:\n\
   -B, --background      run the miner in the background\n"
 #endif
 "\
-  -c, --config=FILE     load a JSON-format configuration file\n\
   -V, --version         display version information and exit\n\
   -h, --help            display this help text and exit\n\
 ";
@@ -157,14 +156,13 @@ static char const short_options[] =
 #ifdef HAVE_SYSLOG_H
 	"S"
 #endif
-	"a:c:Dh:q:t:V";
+	"a:Dh:q:t:V";
 
 static struct option const options[] = {
 	{ "algo", 1, NULL, 'a' },
 #ifndef WIN32
 	{ "background", 0, NULL, 'B' },
 #endif
-	{ "config", 1, NULL, 'c' },
 	{ "debug", 0, NULL, 'D' },
 	{ "help", 0, NULL, 'h' },
 	{ "quiet", 0, NULL, 'q' },
@@ -415,8 +413,6 @@ static void show_usage_and_exit(int status)
 	exit(status);
 }
 
-static void parse_config(json_t *config, char *pname, char *ref);
-
 static void parse_arg(int key, char *arg, char *pname)
 {
 	int v, i;
@@ -450,21 +446,6 @@ static void parse_arg(int key, char *arg, char *pname)
 	case 'B':
 		opt_background = true;
 		break;
-	case 'c': {
-		json_error_t err;
-		json_t *config = JSON_LOAD_FILE(arg, &err);
-		if (!json_is_object(config)) {
-			if (err.line < 0)
-				fprintf(stderr, "%s: %s\n", pname, err.text);
-			else
-				fprintf(stderr, "%s: %s:%d: %s\n",
-					pname, arg, err.line, err.text);
-			exit(1);
-		}
-		parse_config(config, pname, arg);
-		json_decref(config);
-		break;
-	}
 	case 'q':
 		opt_quiet = true;
 		break;
@@ -486,41 +467,6 @@ static void parse_arg(int key, char *arg, char *pname)
 		show_usage_and_exit(0);
 	default:
 		show_usage_and_exit(1);
-	}
-}
-
-static void parse_config(json_t *config, char *pname, char *ref)
-{
-	int i;
-	char *s;
-	json_t *val;
-
-	for (i = 0; i < ARRAY_SIZE(options); i++) {
-		if (!options[i].name)
-			break;
-
-		val = json_object_get(config, options[i].name);
-		if (!val)
-			continue;
-
-		if (options[i].has_arg && json_is_string(val)) {
-			if (!strcmp(options[i].name, "config")) {
-				fprintf(stderr, "%s: %s: option '%s' not allowed here\n",
-					pname, ref, options[i].name);
-				exit(1);
-			}
-			s = strdup(json_string_value(val));
-			if (!s)
-				break;
-			parse_arg(options[i].val, s, pname);
-			free(s);
-		} else if (!options[i].has_arg && json_is_true(val)) {
-			parse_arg(options[i].val, "", pname);
-		} else {
-			fprintf(stderr, "%s: invalid argument for option '%s'\n",
-				pname, options[i].name);
-			exit(1);
-		}
 	}
 }
 
