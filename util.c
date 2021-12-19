@@ -585,15 +585,6 @@ void diff_to_target(uint32_t *target, double diff)
 	}
 }
 
-#ifdef WIN32
-#define socket_blocks() (WSAGetLastError() == WSAEWOULDBLOCK)
-#else
-#define socket_blocks() (errno == EAGAIN || errno == EWOULDBLOCK)
-#endif
-
-#define RBUFSIZE 2048
-#define RECVSIZE (RBUFSIZE - 4)
-
 struct thread_q *tq_new(void)
 {
 	struct thread_q *tq;

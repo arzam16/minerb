@@ -120,8 +120,6 @@ static inline void le32enc(void *pp, uint32_t x)
 }
 #endif
 
-#define USER_AGENT PACKAGE_NAME "/" PACKAGE_VERSION
-
 void sha256_init(uint32_t *state);
 void sha256_transform(uint32_t *state, const uint32_t *block, int swap);
 void sha256d(unsigned char *hash, const unsigned char *data, int len);
