@@ -158,8 +158,6 @@ Options:\n\
                           sha256d   SHA-256d\n\
   -o, --url=URL         URL of mining server\n\
   -O, --userpass=U:P    username:password pair for mining server\n\
-  -u, --user=USERNAME   username for mining server\n\
-  -p, --pass=PASSWORD   password for mining server\n\
   -t, --threads=N       number of miner threads (default: number of processors)\n\
       --no-gbt          disable getblocktemplate support\n\
   -q, --quiet           disable per-thread hashmeter output\n\
@@ -185,7 +183,7 @@ static char const short_options[] =
 #ifdef HAVE_SYSLOG_H
 	"S"
 #endif
-	"a:c:Dhp:q:t:o:u:O:V";
+	"a:c:Dh:q:t:o:O:V";
 
 static struct option const options[] = {
 	{ "algo", 1, NULL, 'a' },
@@ -196,14 +194,12 @@ static struct option const options[] = {
 	{ "debug", 0, NULL, 'D' },
 	{ "help", 0, NULL, 'h' },
 	{ "no-gbt", 0, NULL, 1011 },
-	{ "pass", 1, NULL, 'p' },
 	{ "quiet", 0, NULL, 'q' },
 #ifdef HAVE_SYSLOG_H
 	{ "syslog", 0, NULL, 'S' },
 #endif
 	{ "threads", 1, NULL, 't' },
 	{ "url", 1, NULL, 'o' },
-	{ "user", 1, NULL, 'u' },
 	{ "userpass", 1, NULL, 'O' },
 	{ "version", 0, NULL, 'V' },
 	{ 0, 0, 0, 0 }
@@ -1201,20 +1197,11 @@ static void parse_arg(int key, char *arg, char *pname)
 	case 'D':
 		opt_debug = true;
 		break;
-	case 'p':
-		free(rpc_pass);
-		rpc_pass = strdup(arg);
-		strhide(arg);
-		break;
 	case 't':
 		v = atoi(arg);
 		if (v < 1 || v > 9999)	/* sanity check */
 			show_usage_and_exit(1);
 		opt_n_threads = v;
-		break;
-	case 'u':
-		free(rpc_user);
-		rpc_user = strdup(arg);
 		break;
 	case 'o': {			/* --url */
 		char *ap, *hp;
