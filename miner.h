@@ -7,7 +7,6 @@
 #include <inttypes.h>
 #include <sys/time.h>
 #include <pthread.h>
-#include <jansson.h>
 
 #ifdef STDC_HEADERS
 # include <stdlib.h>
@@ -121,14 +120,6 @@ static inline void le32enc(void *pp, uint32_t x)
 }
 #endif
 
-#if JANSSON_MAJOR_VERSION >= 2
-#define JSON_LOADS(str, err_ptr) json_loads(str, 0, err_ptr)
-#define JSON_LOAD_FILE(path, err_ptr) json_load_file(path, 0, err_ptr)
-#else
-#define JSON_LOADS(str, err_ptr) json_loads(str, err_ptr)
-#define JSON_LOAD_FILE(path, err_ptr) json_load_file(path, err_ptr)
-#endif
-
 #define USER_AGENT PACKAGE_NAME "/" PACKAGE_VERSION
 
 void sha256_init(uint32_t *state);
@@ -176,9 +167,6 @@ extern pthread_mutex_t applog_lock;
 extern struct thr_info *thr_info;
 extern int longpoll_thr_id;
 extern struct work_restart *work_restart;
-
-#define JSON_RPC_LONGPOLL	(1 << 0)
-#define JSON_RPC_QUIET_404	(1 << 1)
 
 extern void applog(int prio, const char *fmt, ...);
 void memrev(unsigned char *p, size_t len);

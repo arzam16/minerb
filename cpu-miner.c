@@ -33,7 +33,6 @@
 #include <sys/sysctl.h>
 #endif
 #endif
-#include <jansson.h>
 #include "compat.h"
 #include "miner.h"
 
@@ -398,9 +397,6 @@ static void show_version_and_exit(void)
 #endif
 		"\n");
 
-#ifdef JANSSON_VERSION
-	printf("libjansson %s\n", JANSSON_VERSION);
-#endif
 	exit(0);
 }
 

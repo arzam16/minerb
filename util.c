@@ -23,7 +23,6 @@
 #include <limits.h>
 #include <errno.h>
 #include <unistd.h>
-#include <jansson.h>
 #include <time.h>
 #if defined(WIN32)
 #include <winsock2.h>
@@ -118,57 +117,6 @@ void applog(int prio, const char *fmt, ...)
 		pthread_mutex_unlock(&applog_lock);
 	}
 	va_end(ap);
-}
-
-/* Modify the representation of integer numbers which would cause an overflow
- * so that they are treated as floating-point numbers.
- * This is a hack to overcome the limitations of some versions of Jansson. */
-static char *hack_json_numbers(const char *in)
-{
-	char *out;
-	int i, off, intoff;
-	bool in_str, in_int;
-
-	out = calloc(2 * strlen(in) + 1, 1);
-	if (!out)
-		return NULL;
-	off = intoff = 0;
-	in_str = in_int = false;
-	for (i = 0; in[i]; i++) {
-		char c = in[i];
-		if (c == '"') {
-			in_str = !in_str;
-		} else if (c == '\\') {
-			out[off++] = c;
-			if (!in[++i])
-				break;
-		} else if (!in_str && !in_int && isdigit(c)) {
-			intoff = off;
-			in_int = true;
-		} else if (in_int && !isdigit(c)) {
-			if (c != '.' && c != 'e' && c != 'E' && c != '+' && c != '-') {
-				in_int = false;
-				if (off - intoff > 4) {
-					char *end;
-#if JSON_INTEGER_IS_LONG_LONG
-					errno = 0;
-					strtoll(out + intoff, &end, 10);
-					if (!*end && errno == ERANGE) {
-#else
-					long l;
-					errno = 0;
-					l = strtol(out + intoff, &end, 10);
-					if (!*end && (errno == ERANGE || l > INT_MAX)) {
-#endif
-						out[off++] = '.';
-						out[off++] = '0';
-					}
-				}
-			}
-		}
-		out[off++] = in[i];
-	}
-	return out;
 }
 
 static void databuf_free(struct data_buffer *db)

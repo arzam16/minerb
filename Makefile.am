@@ -1,13 +1,4 @@
-
-if WANT_JANSSON
-JANSSON_INCLUDES= -I$(top_srcdir)/compat/jansson
-else
-JANSSON_INCLUDES=
-endif
-
-EXTRA_DIST	= example-cfg.json nomacro.pl
-
-SUBDIRS		= compat
+EXTRA_DIST	= nomacro.pl
 
 bin_PROGRAMS	= minerd
 
@@ -31,7 +22,7 @@ minerd_SOURCES += sha2-ppc.S scrypt-ppc.S
 endif
 endif
 minerd_LDFLAGS	= $(PTHREAD_FLAGS)
-minerd_LDADD	= @JANSSON_LIBS@ @PTHREAD_LIBS@ @WS2_LIBS@
+minerd_LDADD	= @PTHREAD_LIBS@ @WS2_LIBS@
 minerd_CFLAGS	= -fno-strict-aliasing
-minerd_CPPFLAGS	= $(JANSSON_INCLUDES) $(PTHREAD_FLAGS)
+minerd_CPPFLAGS	= $(PTHREAD_FLAGS)
 
