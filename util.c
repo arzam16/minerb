@@ -435,22 +435,6 @@ json_t *json_rpc_call(CURL *curl, const char *url,
 		goto err_out;
 	}
 
-	/* If X-Stratum was found, activate Stratum */
-	if (want_stratum && hi.stratum_url &&
-	    !strncasecmp(hi.stratum_url, "stratum+tcp://", 14)) {
-		have_stratum = true;
-		tq_push(thr_info[stratum_thr_id].q, hi.stratum_url);
-		hi.stratum_url = NULL;
-	}
-
-	/* If X-Long-Polling was found, activate long polling */
-	if (!have_longpoll && want_longpoll && hi.lp_path && !have_gbt &&
-	    allow_getwork && !have_stratum) {
-		have_longpoll = true;
-		tq_push(thr_info[longpoll_thr_id].q, hi.lp_path);
-		hi.lp_path = NULL;
-	}
-
 	if (!all_data.buf) {
 		applog(LOG_ERR, "Empty data received in json_rpc_call.");
 		goto err_out;
