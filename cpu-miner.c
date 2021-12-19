@@ -36,7 +36,7 @@
 #include "compat.h"
 #include "miner.h"
 
-#define PROGRAM_NAME		"minerd"
+#define PROGRAM_NAME		"minerb"
 
 #ifdef __linux /* Linux specific policy and affinity management */
 #include <sched.h>
